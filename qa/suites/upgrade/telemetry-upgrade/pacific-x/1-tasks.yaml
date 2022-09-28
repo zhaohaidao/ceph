@@ -27,7 +27,7 @@ tasks:
 - workunit:
     clients:
       client.0:
-        - telemetry_upgrade_pacific.sh
+        - test_telemetry_pacific.sh
 - print: "**** done end telemetry pacific..."
 
 - print: "**** done start upgrade sequence..."
@@ -49,6 +49,6 @@ tasks:
     - workunit:
         clients:
           client.0:
-            - telemetry_upgrade_x.sh
+            - test_telemetry_x.sh
     - print: "**** done end telemetry x..."
 - print: "**** done end upgrade, wait"
