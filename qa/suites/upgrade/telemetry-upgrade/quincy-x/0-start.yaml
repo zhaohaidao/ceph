@@ -10,7 +10,7 @@ roles:
   - client.0
   - node-exporter.a
   - alertmanager.a
-- - mon.b
+- - mon.b.complex
   - mds.b
   - mgr.x
   - osd.4
