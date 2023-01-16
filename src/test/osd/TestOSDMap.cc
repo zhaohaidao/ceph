@@ -211,6 +211,17 @@ public:
     job.wait();
     tp.stop();
   }
+  void set_primary_affinity_all(float pa) {
+    for (uint i = 0 ; i < get_num_osds() ; i++) {
+      osdmap.set_primary_affinity(i, int(pa * CEPH_OSD_MAX_PRIMARY_AFFINITY));
+    }
+  }
+  bool score_in_range(float score, uint nosds = 0) {
+    if (nosds == 0) {
+      nosds = get_num_osds();
+    }
+    return score >= 1.0 && score <= float(nosds);
+  }
 };
 
 TEST_F(OSDMapTest, Create) {
@@ -2279,6 +2290,130 @@ TEST_F(OSDMapTest, blocklisting_everything) {
     ASSERT_TRUE(blocklisted);
   }
 }
+
+TEST_F(OSDMapTest, ReadBalanceScore1) {
+    std::srand ( unsigned ( std::time(0) ) );
+    uint osd_rand = rand() % 13;
+    set_up_map(6 + osd_rand); //whatever
+    for (auto &[pid, pg_pool] : osdmap.get_pools()) {
+      const pg_pool_t *pi = osdmap.get_pg_pool(pid);
+      if (pi->is_replicated()) {
+        //cout << "pool " << pid << " " << pg_pool << std::endl;
+        auto replica_count = pi->get_size();
+        OSDMap::read_balance_info_t rbi;
+        auto rc = osdmap.calc_read_balance_score(g_ceph_context, pid, &rbi);
+
+        // "Normal" score is between 1 and num_osds
+        ASSERT_TRUE(rc == 0);
+        ASSERT_TRUE(score_in_range(rbi.adjusted_score));
+        ASSERT_TRUE(score_in_range(rbi.acting_adj_score));
+        ASSERT_TRUE(rbi.err_msg.empty());
+
+        // When all OSDs have primary_affinity 0, score should be 0
+        auto num_osds = get_num_osds();
+        set_primary_affinity_all(0.);
+
+        rc = osdmap.calc_read_balance_score(g_ceph_context, pid, &rbi);
+        ASSERT_TRUE(rc < 0);
+        ASSERT_TRUE(rbi.adjusted_score == 0.);
+        ASSERT_TRUE(rbi.acting_adj_score == 0.);
+        ASSERT_FALSE(rbi.err_msg.empty());
+
+        std::vector<uint> osds;
+        for (uint i = 0 ; i < num_osds ; i++) {
+          osds.push_back(i);
+        }
+
+        // Change primary_affinity of some OSDs to 1 others are 0
+        float fratio = 1. / (float)replica_count;
+        for (int iter = 0 ; iter < 100 ; iter++) {  // run the test 100 times
+          // Create random shuffle of OSDs
+          std::random_shuffle (osds.begin(), osds.end());
+          for (uint i = 0 ; i < num_osds ; i++) {
+            if ((float(i + 1) / float(num_osds)) < fratio) {
+              ASSERT_TRUE(osds[i] < num_osds);
+              osdmap.set_primary_affinity(osds[i], CEPH_OSD_MAX_PRIMARY_AFFINITY);
+              rc = osdmap.calc_read_balance_score(g_ceph_context, pid, &rbi);
+
+              ASSERT_TRUE(rc < 0);
+              ASSERT_TRUE(rbi.adjusted_score == 0.);
+              ASSERT_TRUE(rbi.acting_adj_score == 0.);
+              ASSERT_FALSE(rbi.err_msg.empty());
+            }
+            else {
+              if (rc < 0) {
+                ASSERT_TRUE(rbi.adjusted_score == 0.);
+                ASSERT_TRUE(rbi.acting_adj_score == 0.);
+                ASSERT_FALSE(rbi.err_msg.empty());
+              }
+              else {
+                ASSERT_TRUE(score_in_range(rbi.acting_adj_score, i + 1));
+                ASSERT_TRUE(rbi.err_msg.empty());
+              }
+            }
+          }
+          set_primary_affinity_all(0.);
+        }
+      }
+    }
+
+  }
+
+TEST_F(OSDMapTest, ReadBalanceScore2) {
+    std::srand ( unsigned ( std::time(0) ) );
+    uint osd_rand = rand() % 13;
+    set_up_map(6 + osd_rand); //whatever
+    for (auto &[pid, pg_pool] : osdmap.get_pools()) {
+      const pg_pool_t *pi = osdmap.get_pg_pool(pid);
+      if (pi->is_replicated()) {
+        // Test random osds with random primary affinity
+        auto num_osds = get_num_osds();
+        float fratio = 1. / (float)pi->get_size();
+        OSDMap::read_balance_info_t rbi;
+
+        for (int i = 0 ; i < 100 ; i++) {
+          int osd = rand() % num_osds;
+          float pa = float(rand() % 110) / 100.;
+          if (pa > 1.)
+            pa = 0.;    // some bias to pa = 0
+          float pa_sum = 0.;
+
+          osdmap.set_primary_affinity(osd, int(pa * CEPH_OSD_MAX_PRIMARY_AFFINITY));
+
+          uint num_pa_osds = 0;
+          for (uint osd = 0 ; osd < num_osds ; osd++) {
+            pa_sum += osdmap.get_primary_affinityf(osd);
+            if (osdmap.get_primary_affinityf(osd) > 0.) {
+              num_pa_osds++;
+            }
+          }
+          float pa_ratio = pa_sum / (float) num_osds;
+
+          auto rc = osdmap.calc_read_balance_score(g_ceph_context, pid, &rbi);
+
+          if (pa_ratio < fratio) {
+            ASSERT_TRUE(rc < 0);
+            ASSERT_FALSE(rbi.err_msg.empty());
+            ASSERT_TRUE(rbi.acting_adj_score == 0.);
+            ASSERT_TRUE(rbi.adjusted_score == 0.);
+          }
+          else {
+            if (rc < 0) {
+              ASSERT_TRUE(rbi.adjusted_score == 0.);
+              ASSERT_TRUE(rbi.acting_adj_score == 0.);
+              ASSERT_FALSE(rbi.err_msg.empty());
+            }
+            else {
+              ASSERT_TRUE(score_in_range(rbi.acting_adj_score, num_pa_osds));
+              ASSERT_TRUE(rbi.err_msg.empty());
+            }
+          }
+        }
+        //TODO add ReadBalanceScore3 - with weighted osds.
+      }
+    }
+
+  }
 
 INSTANTIATE_TEST_SUITE_P(
   OSDMap,

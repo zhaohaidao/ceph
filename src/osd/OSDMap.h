@@ -1473,6 +1473,7 @@ private: // Bunch of internal functions used only by calc_pg_upmaps (result of c
     std::map<uint64_t, std::set<pg_t>> *p_acting_primaries_by_osd = nullptr
   ) const; // used in calc_desired_primary_distribution()
 
+private:
   float get_osds_weight(
     CephContext *cct,
     const OSDMap& tmp_osd_map,
@@ -1576,14 +1577,15 @@ bool try_drop_remap_underfull(
 
 public:
     typedef struct {
-      float primary_affinity_avg;
-      float primary_affinity_weighted;
-      float primary_affinity_w_avg;
+      float pa_avg;
+      float pa_weighted;
+      float pa_weighted_avg;
       float raw_score;
       float optimal_score;  	// based on primary_affinity values
-      float adjusted_score; 	// based on raw_score and primary_affinity_avg 1 is optimal
+      float adjusted_score; 	// based on raw_score and pa_avg 1 is optimal
       float acting_raw_score;   // based on active_primaries (temporary)
-      float acting_adj_score;   // based on raw_active_score and primary_affinity_avg 1 is optimal
+      float acting_adj_score;   // based on raw_active_score and pa_avg 1 is optimal
+      std::string  err_msg;
     } read_balance_info_t;
   //
   // This function calculates scores about the cluster read balance state
@@ -1597,6 +1599,29 @@ public:
     int64_t pool_id,
     read_balance_info_t *p_rb_info) const;
 
+private:
+  int64_t has_zero_pa_pgs(
+    CephContext *cct,
+    int64_t pool_id) const;
+
+  void zero_rbi(
+    read_balance_info_t &rbi
+  ) const;
+
+  int set_rbi(
+    CephContext *cct,
+    read_balance_info_t &rbi,
+    int64_t pool_id,
+    float total_w_pa,
+    float pa_sum,
+    int num_osds,
+    int osd_pa_count,
+    float total_osd_weight,
+    uint max_prims_per_osd,
+    uint max_acting_prims_per_osd,
+    float avg_prims_per_osd) const;
+
+public:
   int get_osds_by_bucket_name(const std::string &name, std::set<int> *osds) const;
 
   bool have_pg_upmaps(pg_t pg) const {
