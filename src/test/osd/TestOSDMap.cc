@@ -46,6 +46,7 @@ public:
   static const string range_addrs[];
   static const string ip_addrs[];
   static const string unblocked_ip_addrs[];
+  static constexpr string EC_RULE_NAME = "erasure";
 
   OSDMapTest() {}
 
@@ -74,29 +75,74 @@ public:
       return;
 
     // Create an EC rule and a pool using it
-    int r = osdmap.crush->add_simple_rule(
-      "erasure", "default", "osd", "",
-      "indep", pg_pool_t::TYPE_ERASURE,
-      &cerr);
+//    int r = get_ec_crush_rule();
+//     int r = osdmap.crush->add_simple_rule(
+//       EC_RULE_NAME, "default", "osd", "",
+//       "indep", pg_pool_t::TYPE_ERASURE,
+//       &cerr);
 
     OSDMap::Incremental new_pool_inc(osdmap.get_epoch() + 1);
     new_pool_inc.new_pool_max = osdmap.get_pool_max();
     new_pool_inc.fsid = osdmap.get_fsid();
-    pg_pool_t empty;
     // make an ec pool
+    set_ec_pool("ec", new_pool_inc);
+//     pg_pool_t empty;
+//     // make an ec pool
+//     uint64_t pool_id = ++new_pool_inc.new_pool_max;
+//     ceph_assert(pool_id == my_ec_pool);
+//     pg_pool_t *p = new_pool_inc.get_new_pool(pool_id, &empty);
+//     p->size = 3;
+//     p->set_pg_num(64);
+//     p->set_pgp_num(64);
+//     p->type = pg_pool_t::TYPE_ERASURE;
+//     p->crush_rule = r;
+//     new_pool_inc.new_pool_names[pool_id] = "ec";
+    // and a replicated pool
+    set_rep_pool("reppool",new_pool_inc);
+//     pool_id = ++new_pool_inc.new_pool_max;
+//     ceph_assert(pool_id == my_rep_pool);
+//     p = new_pool_inc.get_new_pool(pool_id, &empty);
+//     p->size = 3;
+//     p->set_pg_num(64);
+//     p->set_pgp_num(64);
+//     p->type = pg_pool_t::TYPE_REPLICATED;
+//     p->crush_rule = 0;
+//     p->set_flag(pg_pool_t::FLAG_HASHPSPOOL);
+//     new_pool_inc.new_pool_names[pool_id] = "reppool";
+    osdmap.apply_incremental(new_pool_inc);
+  }
+  int get_ec_crush_rule() {
+    int r = osdmap.crush->get_rule_id(EC_RULE_NAME);
+    if (r < 0) {
+      r = osdmap.crush->add_simple_rule(
+        EC_RULE_NAME, "default", "osd", "",
+        "indep", pg_pool_t::TYPE_ERASURE,
+        &cerr);
+    }
+    return r;
+  }
+  uint64_t set_ec_pool(const string &name, OSDMap::Incremental &new_pool_inc,
+                       bool assert_pool_id = true) {
+    pg_pool_t empty;
     uint64_t pool_id = ++new_pool_inc.new_pool_max;
-    ceph_assert(pool_id == my_ec_pool);
+    if (assert_pool_id)
+      ceph_assert(pool_id == my_ec_pool);
     pg_pool_t *p = new_pool_inc.get_new_pool(pool_id, &empty);
     p->size = 3;
     p->set_pg_num(64);
     p->set_pgp_num(64);
     p->type = pg_pool_t::TYPE_ERASURE;
-    p->crush_rule = r;
+    p->crush_rule = get_ec_crush_rule();
     new_pool_inc.new_pool_names[pool_id] = "ec";
-    // and a replicated pool
-    pool_id = ++new_pool_inc.new_pool_max;
-    ceph_assert(pool_id == my_rep_pool);
-    p = new_pool_inc.get_new_pool(pool_id, &empty);
+    return pool_id;
+  }
+  uint64_t set_rep_pool(const string name, OSDMap::Incremental &new_pool_inc,
+                        bool assert_pool_id = true) {
+    pg_pool_t empty;
+    uint64_t pool_id = ++new_pool_inc.new_pool_max;
+    if (assert_pool_id)
+      ceph_assert(pool_id == my_rep_pool);
+    pg_pool_t *p = new_pool_inc.get_new_pool(pool_id, &empty);
     p->size = 3;
     p->set_pg_num(64);
     p->set_pgp_num(64);
@@ -104,8 +150,9 @@ public:
     p->crush_rule = 0;
     p->set_flag(pg_pool_t::FLAG_HASHPSPOOL);
     new_pool_inc.new_pool_names[pool_id] = "reppool";
-    osdmap.apply_incremental(new_pool_inc);
+    return pool_id;
   }
+
   unsigned int get_num_osds() { return num_osds; }
   void get_crush(const OSDMap& tmap, CrushWrapper& newcrush) {
     bufferlist bl;
@@ -2295,7 +2342,8 @@ TEST_F(OSDMapTest, ReadBalanceScore1) {
     std::srand ( unsigned ( std::time(0) ) );
     uint osd_rand = rand() % 13;
     set_up_map(6 + osd_rand); //whatever
-    for (auto &[pid, pg_pool] : osdmap.get_pools()) {
+    auto pools = osdmap.get_pools();
+    for (auto &[pid, pg_pool] : pools) {
       const pg_pool_t *pi = osdmap.get_pg_pool(pid);
       if (pi->is_replicated()) {
         //cout << "pool " << pid << " " << pg_pool << std::endl;
@@ -2361,57 +2409,65 @@ TEST_F(OSDMapTest, ReadBalanceScore1) {
 
 TEST_F(OSDMapTest, ReadBalanceScore2) {
     std::srand ( unsigned ( std::time(0) ) );
-    uint osd_rand = rand() % 13;
-    set_up_map(6 + osd_rand); //whatever
-    for (auto &[pid, pg_pool] : osdmap.get_pools()) {
-      const pg_pool_t *pi = osdmap.get_pg_pool(pid);
-      if (pi->is_replicated()) {
-        // Test random osds with random primary affinity
-        auto num_osds = get_num_osds();
-        float fratio = 1. / (float)pi->get_size();
-        OSDMap::read_balance_info_t rbi;
+    uint osd_num = 6 + rand() % 13;
+    set_up_map(osd_num, true);
+    for (int i = 0 ; i < 100 ; i++) { //running 100 random tests
+      uint num_pa_osds = 0;
+      float pa_sum = 0.;
+      OSDMap::read_balance_info_t rbi;
 
-        for (int i = 0 ; i < 100 ; i++) {
-          int osd = rand() % num_osds;
-          float pa = float(rand() % 110) / 100.;
-          if (pa > 1.)
-            pa = 0.;    // some bias to pa = 0
-          float pa_sum = 0.;
+      // set pa for all osds
+      for (uint j = 0 ; j < osd_num ; j++) {
+        uint pa = 1 + rand() % 100;
+        if (pa > 80)
+          pa = 100;
+        if (pa < 20)
+          pa = 0;
+        float fpa = (float)pa / 100.;
+        if (pa > 0) {
+          num_pa_osds++;
+          pa_sum += fpa;
+        }
+        osdmap.set_primary_affinity(j, int(fpa * CEPH_OSD_MAX_PRIMARY_AFFINITY));
+      }
+      float pa_ratio = pa_sum / (float) osd_num;
 
-          osdmap.set_primary_affinity(osd, int(pa * CEPH_OSD_MAX_PRIMARY_AFFINITY));
+      // create a pool with the current osdmap configuration
+      OSDMap::Incremental new_pool_inc(osdmap.get_epoch() + 1);
+      new_pool_inc.new_pool_max = osdmap.get_pool_max();
+      new_pool_inc.fsid = osdmap.get_fsid();
+      string pool_name = "rep_pool" + stringify(i);
+      uint64_t new_pid = set_rep_pool(pool_name, new_pool_inc, false);
+      ASSERT_TRUE(new_pid > 0);
+      osdmap.apply_incremental(new_pool_inc);
 
-          uint num_pa_osds = 0;
-          for (uint osd = 0 ; osd < num_osds ; osd++) {
-            pa_sum += osdmap.get_primary_affinityf(osd);
-            if (osdmap.get_primary_affinityf(osd) > 0.) {
-              num_pa_osds++;
-            }
-          }
-          float pa_ratio = pa_sum / (float) num_osds;
-
-          auto rc = osdmap.calc_read_balance_score(g_ceph_context, pid, &rbi);
-
-          if (pa_ratio < fratio) {
-            ASSERT_TRUE(rc < 0);
-            ASSERT_FALSE(rbi.err_msg.empty());
-            ASSERT_TRUE(rbi.acting_adj_score == 0.);
-            ASSERT_TRUE(rbi.adjusted_score == 0.);
-          }
-          else {
-            if (rc < 0) {
-              ASSERT_TRUE(rbi.adjusted_score == 0.);
-              ASSERT_TRUE(rbi.acting_adj_score == 0.);
-              ASSERT_FALSE(rbi.err_msg.empty());
-            }
-            else {
-              ASSERT_TRUE(score_in_range(rbi.acting_adj_score, num_pa_osds));
-              ASSERT_TRUE(rbi.err_msg.empty());
-            }
+      // now run the test on the pool.
+      const pg_pool_t *pi = osdmap.get_pg_pool(new_pid);
+      ASSERT_NE(pi, nullptr);
+      ASSERT_TRUE(pi->is_replicated());
+      float fratio = 1. / (float)pi->get_size();
+      auto rc = osdmap.calc_read_balance_score(g_ceph_context, new_pid, &rbi);
+      if (pa_ratio < fratio) {
+        ASSERT_TRUE(rc < 0);
+        ASSERT_FALSE(rbi.err_msg.empty());
+        ASSERT_TRUE(rbi.acting_adj_score == 0.);
+        ASSERT_TRUE(rbi.adjusted_score == 0.);
+      }
+      else {
+        if (rc < 0) {
+          ASSERT_TRUE(rbi.adjusted_score == 0.);
+          ASSERT_TRUE(rbi.acting_adj_score == 0.);
+          ASSERT_FALSE(rbi.err_msg.empty());
+        }
+        else {
+          if (rbi.err_msg.empty()) {
+            ASSERT_TRUE(score_in_range(rbi.acting_adj_score, num_pa_osds));
           }
         }
-        //TODO add ReadBalanceScore3 - with weighted osds.
       }
+
     }
+        //TODO add ReadBalanceScore3 - with weighted osds.
 
   }
 

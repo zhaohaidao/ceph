@@ -1619,7 +1619,10 @@ private:
     float total_osd_weight,
     uint max_prims_per_osd,
     uint max_acting_prims_per_osd,
-    float avg_prims_per_osd) const;
+    float avg_prims_per_osd,
+    bool prim_on_zero_pa,
+    bool acting_on_zero_pa,
+    float max_osd_score) const;
 
 public:
   int get_osds_by_bucket_name(const std::string &name, std::set<int> *osds) const;
