@@ -5774,22 +5774,22 @@ int OSDMap::set_rbi(
   rbi.pa_weighted = total_w_pa;
 
   // weighted_prim_affinity_avg
-  rbi.pa_weighted_avg = rbi.pa_weighted / total_osd_weight; // in [0..1]
+  rbi.pa_weighted_avg = rbi.round(rbi.pa_weighted / total_osd_weight); // in [0..1]
   // p_rbi->pa_weighted / osd_pa_count; // in [0..1]
 
-  rbi.raw_score = (float)max_prims_per_osd / avg_prims_per_osd; // >=1
+  rbi.raw_score = rbi.round((float)max_prims_per_osd / avg_prims_per_osd); // >=1
   if (acting_on_zero_pa) {
-    rbi.acting_raw_score = max_osd_score;
+    rbi.acting_raw_score = rbi.round(max_osd_score);
     rbi.err_msg = fmt::format(
               "pool {} has acting primaries on OSD(s) with primary affinity 0, read balance score is not accurate",
               pool_id);
   } else {
-    rbi.acting_raw_score = (float)max_acting_prims_per_osd / avg_prims_per_osd;
+    rbi.acting_raw_score = rbi.round((float)max_acting_prims_per_osd / avg_prims_per_osd);
   }
 
   if (osd_pa_count != 0) {
     // this implies that pa_sum > 0
-    rbi.pa_avg = pa_sum / osd_pa_count;  // in [0..1]
+    rbi.pa_avg = rbi.round(pa_sum / osd_pa_count);  // in [0..1]
   } else {
     rbi.pa_avg = 0.;
   }
@@ -5806,13 +5806,13 @@ int OSDMap::set_rbi(
                       pool_id, ss.str());
       return -EINVAL;
     }
-    rbi.optimal_score = float(num_osds) / float(osd_pa_count); // >= 1
+    rbi.optimal_score = rbi.round(float(num_osds) / float(osd_pa_count)); // >= 1
     // adjust the score to the primary affinity setting (if prim affinity is set
     // the raw score can't be 1 and the optimal (perfect) score is hifgher than 1)
     // When total system primary affinity is too low (average < 1 / pool replica count)
     // the score is negative in order to grab the user's attention.
-    rbi.adjusted_score = rbi.raw_score / rbi.optimal_score; // >= 1 if PA is not low
-    rbi.acting_adj_score = rbi.acting_raw_score / rbi.optimal_score; // >= 1 if PA is not low
+    rbi.adjusted_score = rbi.round(rbi.raw_score / rbi.optimal_score); // >= 1 if PA is not low
+    rbi.acting_adj_score = rbi.round(rbi.acting_raw_score / rbi.optimal_score); // >= 1 if PA is not low
 
   } else {
     // We should never get here - this condition is checked before calling this function - this is just sanity check code.
@@ -5863,7 +5863,7 @@ int OSDMap::calc_read_balance_score(CephContext *cct, int64_t pool_id,
 		  << prim_pgs_by_osd << dendl;
 
   if (pgs_by_osd.empty()) {
-    p_rbi->err_msg = fmt::format("pool {} has no PGs mapped to OSDs", pool_id);
+    //p_rbi->err_msg = fmt::format("pool {} has no PGs mapped to OSDs", pool_id);
     return -EINVAL;
   }
   if (cct != nullptr) {
