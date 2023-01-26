@@ -1586,8 +1586,6 @@ public:
       float acting_raw_score;   // based on active_primaries (temporary)
       float acting_adj_score;   // based on raw_active_score and pa_avg 1 is optimal
       std::string  err_msg;
-      float round(float f) {
-        return (f > 0.0) ? floor(f * 100 + 0.5) / 100 : ceil(f * 100 - 0.5) / 100;}
     } read_balance_info_t;
   //
   // This function calculates scores about the cluster read balance state
@@ -1602,6 +1600,10 @@ public:
     read_balance_info_t *p_rb_info) const;
 
 private:
+  float rbi_round(float f) const {
+    return (f > 0.0) ? floor(f * 100 + 0.5) / 100 : ceil(f * 100 - 0.5) / 100;
+  }
+
   int64_t has_zero_pa_pgs(
     CephContext *cct,
     int64_t pool_id) const;
