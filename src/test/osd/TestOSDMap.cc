@@ -46,7 +46,7 @@ public:
   static const string range_addrs[];
   static const string ip_addrs[];
   static const string unblocked_ip_addrs[];
-  static constexpr string EC_RULE_NAME = "erasure";
+  const string EC_RULE_NAME = "erasure";
 
   OSDMapTest() {}
 
