@@ -2,6 +2,48 @@
 Pacific
 =======
 
+v16.2.13 Pacific
+================
+
+This release has all hot-fixes as 16.2.12 plus unintended commits and it was tested, reviewed and approved.
+
+Notable Changes
+---------------
+
+Changelog
+---------
+
+* ceph-volume: update the OS before deploying Ceph (pacific) (`pr#50996 <https://github.com/ceph/ceph/pull/50996>`_, Guillaume Abrioux)
+* cephfs-top: Handle `METRIC_TYPE_NONE` fields for sorting (`pr#50597 <https://github.com/ceph/ceph/pull/50597>`_, Neeraj Pratap Singh)
+* doc/dev: format command in cephfs-mirroring (`pr#51109 <https://github.com/ceph/ceph/pull/51109>`_, Zac Dover)
+* doc/glossary: add "Hybrid Storage" (`pr#51098 <https://github.com/ceph/ceph/pull/51098>`_, Zac Dover)
+* doc/glossary: add "Placement Groups" definition (`pr#51186 <https://github.com/ceph/ceph/pull/51186>`_, Zac Dover)
+* doc/glossary: improve "CephX" entry (`pr#51065 <https://github.com/ceph/ceph/pull/51065>`_, Zac Dover)
+* doc/mgr/prometheus: fix confval reference (`pr#51094 <https://github.com/ceph/ceph/pull/51094>`_, Piotr Parczewski)
+* doc/rados/operations: edit monitoring.rst (`pr#51037 <https://github.com/ceph/ceph/pull/51037>`_, Zac Dover)
+* doc/rados/ops: remove ceph-medic from monitoring (`pr#51089 <https://github.com/ceph/ceph/pull/51089>`_, Zac Dover)
+* doc/radosgw: format part of s3select (`pr#51118 <https://github.com/ceph/ceph/pull/51118>`_, Cole Mitchell)
+* doc/radosgw: format part of s3select (`pr#51106 <https://github.com/ceph/ceph/pull/51106>`_, Cole Mitchell)
+* doc/rgw: refine "Setting a Zonegroup" (`pr#51073 <https://github.com/ceph/ceph/pull/51073>`_, Zac Dover)
+* doc/start: edit first 150 lines of documenting-ceph (`pr#51183 <https://github.com/ceph/ceph/pull/51183>`_, Zac Dover)
+* librbd: fix wrong attribute for rbd_quiesce_complete API (`pr#50872 <https://github.com/ceph/ceph/pull/50872>`_, Dongsheng Yang)
+* librbd: report better errors when failing to enable mirroring on an image (`pr#50836 <https://github.com/ceph/ceph/pull/50836>`_, Prasanna Kumar Kalever)
+* mgr/dashboard: custom image for kcli bootstrap script (`pr#50917 <https://github.com/ceph/ceph/pull/50917>`_, Nizamudeen A)
+* mgr/dashboard: fix cephadm e2e expression changed error (`pr#51081 <https://github.com/ceph/ceph/pull/51081>`_, Nizamudeen A)
+* mgr/dashboard: fix create osd default selected as recommended not working (`pr#51038 <https://github.com/ceph/ceph/pull/51038>`_, Nizamudeen A)
+* mgr/dashboard: fix eviction of all FS clients (`pr#51009 <https://github.com/ceph/ceph/pull/51009>`_, Pere Diaz Bou)
+* mon/MgrMap: dump last_failure_osd_epoch and active_clients at top level (`pr#50305 <https://github.com/ceph/ceph/pull/50305>`_, Ilya Dryomov)
+* qa/rgw: use symlinks to specify distro (`pr#50940 <https://github.com/ceph/ceph/pull/50940>`_, Casey Bodley)
+* qa: test the "ms_mode" options in kclient workflows (`pr#50712 <https://github.com/ceph/ceph/pull/50712>`_, Jeff Layton)
+* rgw/coroutine: check for null stack on wakeup (`pr#49097 <https://github.com/ceph/ceph/pull/49097>`_, Casey Bodley)
+* rgw: "reshard cancel" errors with "invalid argument" (`pr#49091 <https://github.com/ceph/ceph/pull/49091>`_, J. Eric Ivancich)
+* rgw: bucket list operation slow down in special scenario (`pr#49086 <https://github.com/ceph/ceph/pull/49086>`_, zealot)
+* rgw: concurrency for multi object deletes (`pr#49327 <https://github.com/ceph/ceph/pull/49327>`_, Casey Bodley, Cory Snyder)
+* rgw: optimizations for handling ECANCELED errors from within get_obj_state (`pr#50886 <https://github.com/ceph/ceph/pull/50886>`_, Cory Snyder)
+* rgw: rgw_parse_url_bucket() rejects empty bucket names after 'tenant:' (`pr#50624 <https://github.com/ceph/ceph/pull/50624>`_, Casey Bodley)
+* rgw: RGWPutLC does not require Content-MD5 (`pr#49089 <https://github.com/ceph/ceph/pull/49089>`_, Casey Bodley)
+* v16.2.12 (`pr#51066 <https://github.com/ceph/ceph/pull/51066>`_, Ceph Release Team, Cory Snyder, Guillaume Abrioux)
+
 v16.2.12 Pacific
 ================
 
